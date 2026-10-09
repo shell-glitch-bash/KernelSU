@@ -41,8 +41,8 @@ jobs:
   generate-key:
     runs-on: ubuntu-latest
     outputs:
-      expected_size: ${{ steps.extract.outputs.expected_size }}
-      expected_hash: ${{ steps.extract.outputs.expected_hash }}
+      expected_size: ${{ steps.extract.outputs.expected_size || steps.extract-release.outputs.expected_size }}
+      expected_hash: ${{ steps.extract.outputs.expected_hash || steps.extract-release.outputs.expected_hash }}
       keystore: ${{ steps.gen.outputs.keystore }}
       keystore_password: ${{ steps.gen.outputs.keystore_password }}
       key_password: ${{ steps.gen.outputs.key_password }}
@@ -67,6 +67,20 @@ jobs:
             -keystore pr-key.jks
 
           echo "keystore=$(base64 -w 0 pr-key.jks)" >> $GITHUB_OUTPUT
+
+      - name: Extract certificate hash and size (release)
+        if: github.event_name != 'pull_request'
+        id: extract-release
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE }}
+          STORE_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > key.jks
+          keytool -exportcert -alias "$KEY_ALIAS" -keystore key.jks -storepass "$STORE_PASS" -file cert.der
+          SIZE_DEC=$(stat -c%s cert.der)
+          echo "expected_size=$(printf '0x%04x' "$SIZE_DEC")" >> "$GITHUB_OUTPUT"
+          echo "expected_hash=$(sha256sum cert.der | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
       - name: Extract certificate hash and size
         if: github.event_name == 'pull_request'
