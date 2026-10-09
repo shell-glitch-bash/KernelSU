@@ -59,6 +59,12 @@ static int ksu_install_fd_with_permissions(unsigned int fd_flags, unsigned long 
         return -ENOMEM;
 
     context->permissions = permissions;
+    // The name is part of a discovery contract with userspace: manager
+    // (manager/app/src/main/cpp/ksu.cc) and ksud (userspace/ksud/src/ksucalls.rs)
+    // locate the driver fd by scanning /proc/self/fd for "[ksu_driver]".
+    // Do NOT rename it — the fd is only visible in processes that already
+    // hold it (i.e. post-authorization), so the name leaks nothing to
+    // unprivileged detectors.
     name = permissions & KSU_DRIVER_PERMISSION_SU_SESSION ? "[ksu_driver_su]" : "[ksu_driver]";
 
     fd = get_unused_fd_flags(fd_flags);

@@ -135,8 +135,11 @@ KSU_PACKAGE_NAME ?= me.weishu.kernelsu
 else
 KSU_PACKAGE_NAME ?= me.weishu.kernelsu.pr
 endif
-KSU_EXPECTED_SIZE ?= 0x033b
-KSU_EXPECTED_HASH ?= c371061b19d8c7d7d6133c6a9bafe198fa944e50c1b31c9d8daa8d7f1fc2d2d6
+# This branch's default manager certificate: the fork's own release signing
+# cert (kernelsu-release.jks). Upstream default is tiann's official manager
+# cert (0x033b / c371061b...), which would reject this fork's manager.
+KSU_EXPECTED_SIZE ?= 0x2e7
+KSU_EXPECTED_HASH ?= 9ed3bdd97d46ea986cb11a3b6b860d16a0b71440c869cd467f77ea67a930ad7c
 
 $(info -- KernelSU Manager package name: $(KSU_PACKAGE_NAME))
 $(info -- KernelSU Manager signature size: $(KSU_EXPECTED_SIZE))

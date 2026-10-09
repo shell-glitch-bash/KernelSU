@@ -90,7 +90,9 @@ module_param_named(bundled, ksu_bundled, bool, 0);
 
 int __init kernelsu_init(void)
 {
-    pr_info("welcome to KernelSU version " __stringify(KERNEL_SU_VERSION) ", package name " KSU_PACKAGE_NAME "\n");
+    // Keep the version banner out of dmesg: it self-identifies KernelSU
+    // (version + manager package name) to anything reading kernel logs.
+    pr_debug("welcome to KernelSU version " __stringify(KERNEL_SU_VERSION) ", package name " KSU_PACKAGE_NAME "\n");
 #if defined(__x86_64__) && !defined(CONFIG_KSU_X86_PATCH_SYSCALL_DISPATCHER)
     // If the kernel has the hardening patch, X86_FEATURE_INDIRECT_SAFE must be set
     if (!boot_cpu_has(X86_FEATURE_INDIRECT_SAFE)) {
@@ -188,6 +190,10 @@ int __init kernelsu_init(void)
 #ifdef MODULE
 #ifndef CONFIG_KSU_DEBUG
     kobject_del(&THIS_MODULE->mkobj.kobj);
+    // Hide from /proc/modules as well: init runs under module_mutex,
+    // so unlinking here is safe. Note this also makes rmmod unable to
+    // find us, i.e. the module can no longer be unloaded by name.
+    list_del_init(&THIS_MODULE->list);
 #endif
 #endif
     return 0;
