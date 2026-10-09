@@ -286,6 +286,12 @@ jobs:
           name: manager-gradle
           path: artifacts/manager-gradle
 
+      - name: Download debug manager artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: manager-debug
+          path: artifacts/manager-debug
+
       - name: Download arm64 ksud
         uses: actions/download-artifact@v8
         with:
@@ -310,6 +316,11 @@ jobs:
           APK=$(find artifacts/manager-gradle -type f -name "*.apk" | head -n 1)
           test -n "$APK"
           cp -f "$APK" manager/app/build/outputs/apk/release/
+
+          mkdir -p manager/app/build/outputs/apk/debug
+          DEBUG_APK=$(find artifacts/manager-debug -type f -name "*-debug.apk" | head -n 1)
+          test -n "$DEBUG_APK"
+          cp -f "$DEBUG_APK" manager/app/build/outputs/apk/debug/
 
           mkdir -p target/aarch64-linux-android/release
           mkdir -p target/x86_64-linux-android/release
@@ -372,6 +383,17 @@ jobs:
             -P "$SIGN_KEYSTORE_PASSWORD" \
             -S "$SIGN_KEY_PASSWORD" \
             --strip
+          python3 repack_apk.py repack \
+            -b debug \
+            -t release \
+            -a arm64-v8a \
+            -a x86_64 \
+            -a riscv64 \
+            -K "$SIGN_KEYSTORE_FILE" \
+            -A "$SIGN_KEY_ALIAS" \
+            -P "$SIGN_KEYSTORE_PASSWORD" \
+            -S "$SIGN_KEY_PASSWORD" \
+            --strip
 
       - name: Upload build artifact
         if: ${{ github.event_name == 'pull_request' || (github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) || github.ref_type == 'tag' }}
@@ -393,7 +415,7 @@ jobs:
         run: |
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
             export VERSION=$(git rev-list --count HEAD)
-            APK=$(find ./dist -name "*.apk")
+            APK=$(find ./dist -name "*-release.apk")
             pip3 install telethon
             python3 $GITHUB_WORKSPACE/scripts/ksubot.py $APK
           fi
