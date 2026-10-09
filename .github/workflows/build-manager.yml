@@ -76,6 +76,10 @@ jobs:
           STORE_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "No KEYSTORE secret configured, skipping cert extraction"
+            exit 0
+          fi
           echo "$KEYSTORE_B64" | base64 -d > key.jks
           keytool -exportcert -alias "$KEY_ALIAS" -keystore key.jks -storepass "$STORE_PASS" -file cert.der
           SIZE_DEC=$(stat -c%s cert.der)
