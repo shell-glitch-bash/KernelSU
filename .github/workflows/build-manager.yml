@@ -247,11 +247,12 @@ jobs:
           name: manager-gradle
           path: manager/app/build/outputs/apk/release/*.apk
 
-      - name: Upload debug build artifact
+      - name: Upload debug build artifact (intermediate for repack)
         uses: actions/upload-artifact@v7
         with:
-          name: manager-debug
+          name: manager-debug-raw
           path: manager/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
 
       - name: Upload mappings
         uses: actions/upload-artifact@v7
@@ -289,7 +290,7 @@ jobs:
       - name: Download debug manager artifact
         uses: actions/download-artifact@v8
         with:
-          name: manager-debug
+          name: manager-debug-raw
           path: artifacts/manager-debug
 
       - name: Download arm64 ksud
@@ -395,12 +396,19 @@ jobs:
             -S "$SIGN_KEY_PASSWORD" \
             --strip
 
-      - name: Upload build artifact
+      - name: Upload repacked release apk
         if: ${{ github.event_name == 'pull_request' || (github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) || github.ref_type == 'tag' }}
         uses: actions/upload-artifact@v7
         with:
           name: manager
-          path: dist/*.apk
+          path: dist/*-release.apk
+
+      - name: Upload repacked debug apk
+        if: ${{ github.event_name == 'pull_request' || (github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) || github.ref_type == 'tag' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: manager-debug
+          path: dist/*-debug.apk
 
       - name: Upload to telegram
         if: github.event_name != 'pull_request' && steps.need_upload.outputs.UPLOAD == 'true'
