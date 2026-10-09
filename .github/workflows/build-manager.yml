@@ -68,6 +68,13 @@ jobs:
 
           echo "keystore=$(base64 -w 0 pr-key.jks)" >> $GITHUB_OUTPUT
 
+      - name: Read kernel certificate limit
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: kernel/manager/apk_sign.c
+          sparse-checkout-cone-mode: false
+
       - name: Extract certificate hash and size (release)
         if: github.event_name != 'pull_request'
         id: extract-release
@@ -80,15 +87,22 @@ jobs:
             echo "No KEYSTORE secret configured, skipping cert extraction"
             exit 0
           fi
+          # kernel/manager/apk_sign.c rejects certificates larger than
+          # CERT_MAX_LENGTH; with a compile-time EXPECTED_SIZE above that
+          # limit the whole signature check is folded away as dead code and
+          # every manager is rejected. Read the limit from source so we
+          # track upstream, and fail early instead of shipping a broken ko.
+          LIMIT=$(sed -n 's/^[[:space:]]*#define CERT_MAX_LENGTH[[:space:]]\+\([0-9]\+\).*/\1/p' kernel/manager/apk_sign.c | head -n1)
+          if [ -z "$LIMIT" ]; then
+            echo "::warning::CERT_MAX_LENGTH not found in kernel source, falling back to 1024"
+            LIMIT=1024
+          fi
           echo "$KEYSTORE_B64" | base64 -d > key.jks
           keytool -exportcert -alias "$KEY_ALIAS" -keystore key.jks -storepass "$STORE_PASS" -file cert.der
           SIZE_DEC=$(stat -c%s cert.der)
-          # kernel/manager/apk_sign.c rejects certificates larger than
-          # CERT_MAX_LENGTH (1024) at runtime; with a compile-time
-          # EXPECTED_SIZE above that limit the whole signature check is
-          # folded away and every manager is rejected. Fail early instead.
-          if [ "$SIZE_DEC" -gt 1024 ]; then
-            echo "::error::Certificate DER is $SIZE_DEC bytes, exceeding the kernel CERT_MAX_LENGTH of 1024. Re-create the signing key with a smaller certificate (e.g. RSA 2048, default keytool extensions)."
+          echo "Certificate DER: $SIZE_DEC bytes, kernel CERT_MAX_LENGTH: $LIMIT"
+          if [ "$SIZE_DEC" -gt "$LIMIT" ]; then
+            echo "::error::Certificate DER is $SIZE_DEC bytes, exceeding the kernel CERT_MAX_LENGTH of $LIMIT. Re-create the signing key with a smaller certificate (e.g. RSA 2048, default keytool extensions)."
             exit 1
           fi
           echo "expected_size=$(printf '0x%04x' "$SIZE_DEC")" >> "$GITHUB_OUTPUT"
