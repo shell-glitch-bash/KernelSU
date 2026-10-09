@@ -83,6 +83,14 @@ jobs:
           echo "$KEYSTORE_B64" | base64 -d > key.jks
           keytool -exportcert -alias "$KEY_ALIAS" -keystore key.jks -storepass "$STORE_PASS" -file cert.der
           SIZE_DEC=$(stat -c%s cert.der)
+          # kernel/manager/apk_sign.c rejects certificates larger than
+          # CERT_MAX_LENGTH (1024) at runtime; with a compile-time
+          # EXPECTED_SIZE above that limit the whole signature check is
+          # folded away and every manager is rejected. Fail early instead.
+          if [ "$SIZE_DEC" -gt 1024 ]; then
+            echo "::error::Certificate DER is $SIZE_DEC bytes, exceeding the kernel CERT_MAX_LENGTH of 1024. Re-create the signing key with a smaller certificate (e.g. RSA 2048, default keytool extensions)."
+            exit 1
+          fi
           echo "expected_size=$(printf '0x%04x' "$SIZE_DEC")" >> "$GITHUB_OUTPUT"
           echo "expected_hash=$(sha256sum cert.der | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
