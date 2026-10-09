@@ -69,6 +69,7 @@ jobs:
         with:
           files: |
             manager/*.apk
+            manager-debug/*.apk
             lkm/lkm-*_kernelsu.ko
             ksud/ksud-*
             ksuinit/*
