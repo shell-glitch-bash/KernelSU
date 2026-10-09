@@ -312,6 +312,10 @@ jobs:
           PROD_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           PROD_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          if [ "${{ github.event_name }}" != "pull_request" ] && [ -z "$PROD_KEYSTORE" ]; then
+            echo "No signing secret configured, skipping repack"
+            exit 0
+          fi
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "$PR_KEYSTORE" | base64 -d > pr-key.jks
             echo "SIGN_KEYSTORE_FILE=pr-key.jks" >> $GITHUB_ENV
@@ -330,6 +334,10 @@ jobs:
       - name: Repack and resign
         if: ${{ github.event_name == 'pull_request' || (github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) || github.ref_type == 'tag' }}
         run: |
+          if [ -z "$SIGN_KEYSTORE_FILE" ]; then
+            echo "Signing skipped, nothing to repack"
+            exit 0
+          fi
           python3 repack_apk.py repack \
             -b release \
             -t release \
