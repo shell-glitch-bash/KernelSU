@@ -12,6 +12,9 @@ jobs:
   release:
     needs:
       - build-manager
+    permissions:
+      contents: write
+      actions: read
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
