@@ -71,6 +71,7 @@ jobs:
       - name: Read kernel certificate limit
         if: github.event_name != 'pull_request'
         uses: actions/checkout@v7
+        continue-on-error: true   # never block a release on this; extract falls back to 1024
         with:
           sparse-checkout: kernel/manager/apk_sign.c
           sparse-checkout-cone-mode: false
