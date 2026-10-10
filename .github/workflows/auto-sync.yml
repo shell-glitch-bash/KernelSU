@@ -17,8 +17,8 @@ jobs:
           fetch-depth: 0
       - name: Merge upstream
         run: |
-          git config user.name "star-in-oss"
-          git config user.email "star-in-oss@users.noreply.github.com"
+          git config user.name "shell-glitch-bash"
+          git config user.email "shell-glitch-bash@users.noreply.github.com"
           git remote add upstream https://github.com/tiann/KernelSU.git
           git fetch upstream
           git merge upstream/main -m "chore: sync upstream" || exit 0
@@ -34,8 +34,8 @@ jobs:
           fetch-depth: 0
       - name: Tag and release if there are unreleased commits
         run: |
-          git config user.name "star-in-oss"
-          git config user.email "star-in-oss@users.noreply.github.com"
+          git config user.name "shell-glitch-bash"
+          git config user.email "shell-glitch-bash@users.noreply.github.com"
           LAST=$(git describe --tags --match 'v*-s*' --abbrev=0 2>/dev/null || true)
           if [ -n "$LAST" ] && [ "$(git rev-parse HEAD)" = "$(git rev-parse "$LAST^{commit}")" ]; then
             echo "HEAD already released as $LAST, nothing to do"
