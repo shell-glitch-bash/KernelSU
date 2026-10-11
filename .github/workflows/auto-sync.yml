@@ -20,8 +20,8 @@ jobs:
           git config user.name "shell-glitch-bash"
           git config user.email "shell-glitch-bash@users.noreply.github.com"
           git remote add upstream https://github.com/tiann/KernelSU.git
-          git fetch upstream
-          git merge upstream/main -m "chore: sync upstream" || exit 0
+          git fetch upstream --tags
+          git merge upstream/main -m "chore: sync upstream" || { echo "::warning::上游合并失败或存在冲突，本次同步跳过，请人工处理"; exit 0; }
           git push origin main
 
   release:
@@ -36,14 +36,40 @@ jobs:
         run: |
           git config user.name "shell-glitch-bash"
           git config user.email "shell-glitch-bash@users.noreply.github.com"
-          LAST=$(git describe --tags --match 'v*-s*' --abbrev=0 2>/dev/null || true)
+          git remote add upstream https://github.com/tiann/KernelSU.git
+          git fetch upstream --tags
+
+          # 1) 当前代码里包含的最新官方版本号（排除 -s 后缀的 fork tag）
+          UPSTREAM_BASE=$(git tag --list 'v[0-9]*' --exclude '*-s*' --sort=-v:refname | head -1)
+          UPSTREAM_BASE=${UPSTREAM_BASE:-v0.0.0}
+          echo "Upstream base: $UPSTREAM_BASE"
+
+          # 2) 上一个 fork 构建 tag（vX.Y.Z-sN 格式）
+          LAST=$(git tag --list '*-s*' --sort=-v:refname | head -1 || true)
+
+          # 3) HEAD 已经发布过就无事发生
           if [ -n "$LAST" ] && [ "$(git rev-parse HEAD)" = "$(git rev-parse "$LAST^{commit}")" ]; then
             echo "HEAD already released as $LAST, nothing to do"
             exit 0
           fi
-          BASE=$(echo "${LAST:-v0.0.0-s0}" | sed -E 's/^(.*-s)[0-9]+$/\1/')
-          N=$(echo "${LAST:-v0.0.0-s0}" | sed -E 's/^.*-s([0-9]+)$/\1/')
-          NEW="${BASE}$((N+1))"
+
+          # 4) 计算序号：官方版本变了 → 重置为 1；没变 → 接着 +1
+          if [ -z "$LAST" ]; then
+            N=1
+          else
+            LAST_BASE="${LAST%-s*}"     # v1.0.330-s5 -> v1.0.330
+            LAST_N="${LAST##*-s}"       # v1.0.330-s5 -> 5
+            case "$LAST_N" in
+              ''|*[!0-9]*) LAST_N=0 ;;
+            esac
+            if [ "$LAST_BASE" = "$UPSTREAM_BASE" ]; then
+              N=$((LAST_N + 1))
+            else
+              N=1
+            fi
+          fi
+
+          NEW="${UPSTREAM_BASE}-s${N}"
           echo "Creating release tag $NEW (last was ${LAST:-none})"
           git tag "$NEW"
           git push origin "$NEW"
