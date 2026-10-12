@@ -4,6 +4,9 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+  workflow_run:                      # ← 新增这三行
+    workflows: ["Sync upstream"]
+    types: [completed]
 
 jobs:
   build-manager:
