@@ -1,8 +1,8 @@
 name: Sync upstream
 on:
   schedule:
-    - cron: '17 18 * * *'    # 每天 UTC 18:17（北京时间凌晨 2:17），错峰
-  workflow_dispatch:          # 保留手动触发按钮
+    - cron: '17 18 */3 * *'  # 每 3 天 UTC 18:17（北京时间凌晨 2:17），错峰、降低被 suspended 的概率
+  workflow_dispatch:          # 保留手动触发按钮（被暂停后靠它复活）
 
 permissions:
   contents: write
@@ -39,13 +39,15 @@ jobs:
           git remote add upstream https://github.com/tiann/KernelSU.git
           git fetch upstream --tags
 
-          # 1) 当前代码里包含的最新官方版本号（排除 -s 后缀的 fork tag）
-          UPSTREAM_BASE=$(git tag --list 'v[0-9]*' --exclude '*-s*' --sort=-v:refname | head -1)
+          # 1) 当前代码里包含的最新官方版本号（用 grep 排除 -s 后缀的 fork tag，
+          #    注意：git tag 没有 --exclude 选项，之前那版会报错并退化成 v0.0.0）
+          UPSTREAM_BASE=$(git tag --list 'v[0-9]*' --sort=-v:refname | grep -vE -- '-s[0-9]+$' | head -1)
           UPSTREAM_BASE=${UPSTREAM_BASE:-v0.0.0}
           echo "Upstream base: $UPSTREAM_BASE"
 
           # 2) 上一个 fork 构建 tag（vX.Y.Z-sN 格式）
           LAST=$(git tag --list '*-s*' --sort=-v:refname | head -1 || true)
+          echo "Last fork tag: ${LAST:-none}"
 
           # 3) HEAD 已经发布过就无事发生
           if [ -n "$LAST" ] && [ "$(git rev-parse HEAD)" = "$(git rev-parse "$LAST^{commit}")" ]; then
