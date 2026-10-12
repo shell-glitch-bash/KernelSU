@@ -4,12 +4,14 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
-  workflow_run:                      # ← 新增这三行
+  workflow_run:                      # Actions 推的 tag 不会触发 push 事件，靠这个补
     workflows: ["Sync upstream"]
     types: [completed]
 
 jobs:
   build-manager:
+    # workflow_run 触发时，只有 Sync 成功才值得构建
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     uses: ./.github/workflows/build-manager.yml
     secrets: inherit
   release:
@@ -23,7 +25,35 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v8
 
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            # Sync 打 tag 用的是 GITHUB_TOKEN，push 事件被抑制，tag 名不在事件里
+            # 自己去仓库找最新的 fork tag
+            TAG=$(git ls-remote --tags https://github.com/${{ github.repository }}.git 'v*-s*' \
+                  | sed 's|.*refs/tags/||' | sort -V | tail -1)
+          else
+            # push/workflow_dispatch 触发时直接用 ref 里的 tag
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "tag=$TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Check if already released
+        id: check
+        run: |
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ steps.tag.outputs.tag }}")
+          echo "http=$CODE"
+          if [ "$CODE" = "200" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Rename ksud
+        if: steps.check.outputs.skip == 'false'
         run: |
           mkdir -p ksud
           for dir in ./ksud-*; do
@@ -39,6 +69,7 @@ jobs:
           done
 
       - name: Rename ksuinit
+        if: steps.check.outputs.skip == 'false'
         run: |
           mkdir -p ksuinit
           for dir in ./ksuinit-*; do
@@ -52,6 +83,7 @@ jobs:
           done
 
       - name: Rename lkm
+        if: steps.check.outputs.skip == 'false'
         run: |
           mkdir -p lkm
           for dir in ./*-android*-lkm; do
@@ -65,11 +97,14 @@ jobs:
           done
 
       - name: Display structure of downloaded files
+        if: steps.check.outputs.skip == 'false'
         run: ls -R
 
       - name: release
+        if: steps.check.outputs.skip == 'false'
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ steps.tag.outputs.tag }}
           files: |
             manager/*.apk
             manager-debug/*.apk
