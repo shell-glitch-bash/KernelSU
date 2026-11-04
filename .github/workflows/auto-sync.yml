@@ -23,7 +23,7 @@ jobs:
           git config user.email "shell-glitch-bash@users.noreply.github.com"
           git remote add upstream https://github.com/tiann/KernelSU.git
           git fetch upstream --tags
-          git merge upstream/main -m "chore: sync upstream" || { echo "::warning::上游合并失败或存在冲突，本次同步跳过，请人工处理"; exit 0; }
+          git merge upstream/main -m "chore: sync upstream" || { echo "::warning::上游合并失败或存在冲突，本次同步跳过，请人工处理"; exit 1; }
           git push origin main
 
   release:
